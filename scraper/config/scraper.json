@@ -1,0 +1,20 @@
+{
+  "userAgent": "antibiotice-sa-nodejs-scraper",
+  "requestTimeoutMs": 10000,
+  "pageDelayMs": 1000,
+  "staleJobDeletion": false,
+  "manageCompany": false,
+  "defaultLocation": ["Iași"],
+  "defaultWorkmode": "on-site",
+  "ownJobUrlPrefix": "https://www.antibiotice.ro/joburi/",
+  "sources": {
+    "sitemap": "https://www.antibiotice.ro/joburi-sitemap.xml",
+    "listing": "https://www.antibiotice.ro/cariere/open-position/",
+    "jobArchive": "https://www.antibiotice.ro/joburi/"
+  },
+  "selectors": {
+    "jobArticle": "article.job-item",
+    "jobTitle": ".header-job h3",
+    "jobMeta": "article.job-item > p"
+  }
+}
