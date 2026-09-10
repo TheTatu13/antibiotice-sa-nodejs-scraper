@@ -14,7 +14,7 @@
 
 ## Current Job Listings (12)
 
-_Generated: 2026-09-10T10:15:19.264Z_
+_Generated: 2026-09-10T11:46:01.605Z_
 
 ### Manager Medical – Produse veterinare
 
@@ -58,9 +58,9 @@ _Generated: 2026-09-10T10:15:19.264Z_
 - **Location:** Iași
 - **Status:** scraped
 
-### Reprezentant vânzări Biovet
+### Reprezentant Medical si Vanzari – Veterinare
 
-- **URL:** [https://www.antibiotice.ro/joburi/reprezentat-vanzari-biovet/](https://www.antibiotice.ro/joburi/reprezentat-vanzari-biovet/)
+- **URL:** [https://www.antibiotice.ro/joburi/reprezentant-medical/](https://www.antibiotice.ro/joburi/reprezentant-medical/)
 - **Work Mode:** on-site
 - **Location:** Iași
 - **Status:** scraped
