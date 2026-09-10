@@ -134,6 +134,8 @@ generateJobsMarkdown() → docs/jobs.md
 | `scraper/api.js` | Peviitor API operations module - query, delete, upsert jobs + standalone commands |
 | `scraper/validate-jobs.js` | Manual deep validator (content-aware); thin CLI wrapper over `scraper/job-validator.js` |
 | `scraper/job-validator.js` | Shared validation primitives: `validateByHead`, `validateByContent`, `DEFAULT_EXPIRED_KEYWORDS` |
+| `scraper/self-healing.js` | Generic selector cascade (primary CSS → fallback → structural/JSON-LD → regex); see `ai/AGENTS.md` |
+| `scraper/validate.js` | Generic pre-publish data validation + the 0-result canary (`assertScrapeYieldedJobs`) |
 | `scraper/markdown-generator.js` | Generates `docs/jobs.md` with company info and all scraped jobs |
 | `tests/unit/index.test.js` | Unit tests for slugify, parseDeadline, matchSitemapUrl, parseListing, mapToJobModel, transformJobsForSOLR |
 | `tests/unit/company.test.js` | Unit tests for validateAndGetCompany and fallback caching |

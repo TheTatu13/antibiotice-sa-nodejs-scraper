@@ -11,6 +11,8 @@
 | `scraper/api.js` | Peviitor API operations module - exports querySOLR, deleteJobByUrl, upsertJobs + standalone verify/extract/company commands |
 | `scraper/validate-jobs.js` | **Generic deep validator (manual use).** Full GET requests, parses page body for "no longer available" keywords. Works with any CIF, single URL, or file. Slower but catches soft-404s. Not used by CI. |
 | `scraper/job-validator.js` | Shared validation primitives - exports validateByHead(url), validateByContent(url, opts), validateByBrowser(url, opts), DEFAULT_EXPIRED_KEYWORDS. Used by `validate-jobs.js`, `tests/validate-antibiotice-jobs.js`, and the deep-validate workflow. |
+| `scraper/self-healing.js` | **Generic** selector cascade — `firstMatch`, `locateArticles`, `jsonLdJobPostings`, `cssText`/`structuralText`/`regexText`. Primary CSS → fallback CSS → structural/JSON-LD → regex, `try/catch` + log per strategy. Consumed by `parseListing`. See `ai/AGENTS.md`. |
+| `scraper/validate.js` | **Generic** pre-publish data validation — `validateJob` (url/title/location/salary), `filterValidJobs` (drops + logs), `assertScrapeYieldedJobs` (the 0-result canary). |
 | `scraper/markdown-generator.js` | Generates docs/jobs.md - exports generateJobsMarkdown(companyData, jobs) |
 
 ## Config — scraper/config/
@@ -34,6 +36,8 @@
 | `tests/unit/api.test.js` | Unit tests for api.js - query, upsert, delete, HTTP error handling |
 | `tests/unit/demoanaf.test.js` | Unit tests for anaf.js - search, company retrieval, CUIScan/CUIFirma fallback |
 | `tests/unit/job-validator.test.js` | Unit tests for job-validator.js - validateByHead, validateByContent, validateByBrowser |
+| `tests/unit/self-healing.test.js` | Unit tests for self-healing.js - each cascade level in isolation, all-fail logging, JSON-LD, `locateArticles` modes |
+| `tests/unit/validate.test.js` | Unit tests for validate.js - url/title/location/salary rules, `filterValidJobs`, canary |
 | `tests/unit/markdown-generator.test.js` | Unit tests for markdown-generator.js |
 | `tests/integration/workflow.test.js` | Integration tests - ANAF live API, Peviitor API |
 | `tests/e2e/scraper.test.js` | E2E tests - full pipeline with real antibiotice.ro, ANAF, and Peviitor API |

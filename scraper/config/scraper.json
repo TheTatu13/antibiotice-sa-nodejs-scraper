@@ -13,8 +13,22 @@
     "jobArchive": "https://www.antibiotice.ro/joburi/"
   },
   "selectors": {
-    "jobArticle": "article.job-item",
-    "jobTitle": ".header-job h3",
-    "jobMeta": "article.job-item > p"
+    "jobArticle": [
+      "article.job-item",
+      "[class*='job-item']",
+      ".career-item, .job-listing, li.job, .vacancy"
+    ],
+    "jobTitle": [
+      ".header-job h3",
+      "h1, h2, h3, h4",
+      ".job-title, [class*='title']",
+      "[itemprop='title'], [aria-label]",
+      "a[href*='/joburi/']"
+    ],
+    "jobMeta": [
+      "article.job-item > p",
+      ".job-item p, .career-item p",
+      "p, .meta, [class*='deadline'], [class*='data']"
+    ]
   }
 }

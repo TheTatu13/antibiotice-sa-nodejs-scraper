@@ -10,6 +10,53 @@ When making changes:
 - **All company-specific identity lives in `scraper/config/company.json`** (id, company, brand, URLs, API params). Read from `scraper/config/company.js` in Node code, or via `jq` in workflows. Never hardcode in source files.
 - **Only the scraping logic in `scraper/index.js`** (`scrapeAntibioticeCareers`, `fetchSitemapJobUrls`, `parseListing`, `searchANOFM`) is source-specific. The output shape (`mapToJobModel`, `transformJobsForSOLR`) must stay uniform across peviitor.ro scrapers.
 
+## Self-healing selector cascade
+
+`scraper/self-healing.js` + `scraper/validate.js` are **generic** (no site knowledge) — copy them verbatim into a derived scraper. Only `scraper/config/scraper.json` and `parseListing` in `index.js` are site-specific.
+
+### How a field is extracted
+
+Every field on the listing page goes through a cascade, tried top to bottom until one strategy returns a non-empty value. Each step is wrapped in its own `try/catch` — a throwing or empty strategy is **logged** (`[self-heal] <field>: …`) and the cascade continues, so one broken selector never fails the run, and a fallback that rescues a field is printed immediately (not discovered two weeks later).
+
+| Level | Strategy | Where it's configured |
+|---|---|---|
+| 1 | Primary CSS selector | first entry of the `selectors.*` array in `scraper/config/scraper.json` |
+| 2 | Fallback CSS selectors | remaining entries of that array (headings, `[class*='…']`, permalink anchor, …) |
+| 3 | Structural anchoring | `[itemprop='…']`, `[aria-label]`, `<meta content>`, and **JSON-LD `JobPosting`** (`schema.org`) — the most stable hook a careers page offers |
+| 4 | Regex on raw HTML | `<hN>` / `<a>` capture as a last-resort safety net |
+
+The **article-level** cascade (finding the repeated job blocks at all) works the same way — `locateArticles()` returns a `mode`:
+`css:<selector>` → `jsonld` (JobPosting blocks, no article markup) → `regex:<article>` (slice `<article>…</article>`) → `none` (canary fires).
+
+### Config format (`scraper/config/scraper.json`)
+
+```json
+"selectors": {
+  "jobArticle": ["article.job-item", "[class*='job-item']", ".career-item, li.job"],
+  "jobTitle":   [".header-job h3", "h1, h2, h3, h4", "[itemprop='title']", "a[href*='/joburi/']"],
+  "jobMeta":    ["article.job-item > p", ".job-item p", "p, .meta, [class*='deadline']"]
+}
+```
+
+A single string is still accepted (`asList()` normalises it). Put the **most specific** selector first, broader fallbacks after.
+
+### Adding a field to a derived scraper
+
+1. Add its selector list to `selectors` in `scraper.json` (primary + 1–2 fallbacks).
+2. In `parseListing`, extract it with `firstMatch("<field>", [ …strategies ])`, or `scope.text(selectors)` for the plain CSS cascade.
+3. Compose strategies from `cssText`, `structuralText`, `regexText`, `jsonLdJobPostings`.
+4. Add a test per level in `tests/unit/self-healing.test.js` / `index.test.js` (primary works → fallback works → regex works → all-fail logs).
+
+### Validation & canary (`scraper/validate.js`)
+
+- `validateJob(job)` → `{ valid, errors }`: URL must be a real http(s) URL, title non-empty / no HTML / ≤ 200 chars, `location` an array of non-empty strings, `salary` a string with no negative amount.
+- `filterValidJobs(jobs)` drops the failures (logged individually) before mapping to the job model.
+- `assertScrapeYieldedJobs(jobs)` is the **canary** — throws before any file write / API call when the scrape produced nothing (or nothing survived validation). A 0-result run almost always means the markup changed, not that the company has no openings.
+
+### Scrapling (Python only)
+
+The Python counterpart (`peviitor-scraper-py`) has an **optional** extra cascade level via [Scrapling](https://github.com/D4Vinci/Scrapling) (`adaptive=True, auto_save=True`) — it fingerprints an element and relocates it by similarity when the selector drifts. Cheerio has no equivalent, so the JS scraper implements levels 1–4 by hand. See `peviitor-scraper-py/ai/SELF-HEALING.md`.
+
 ## Critical Rules
 
 ### 0. Background tasks — always pass `--repo` explicitly to `gh`

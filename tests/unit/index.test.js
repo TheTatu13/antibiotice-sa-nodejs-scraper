@@ -90,6 +90,86 @@ describe('index.js Component Tests', () => {
     it('returns an empty array when the selector matches nothing', () => {
       expect(index.parseListing('<div>no jobs here</div>')).toEqual([]);
     });
+
+    describe('self-healing when the primary markup breaks', () => {
+      let logSpy, warnSpy;
+      beforeEach(() => {
+        logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+        warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      });
+      afterEach(() => { logSpy.mockRestore(); warnSpy.mockRestore(); });
+
+      it('recovers via a fallback article selector when the class is renamed', () => {
+        // site swapped `article.job-item` -> `article.job-card` (still class*="job-")
+        const html = `
+          <article class="job-card">
+            <div class="header-job"><h3>Analist Calitate</h3></div>
+            <p>Data limita pentru aplicarea la acest job este: 15.11.2026</p>
+          </article>`;
+        const items = index.parseListing(html);
+        expect(items).toHaveLength(1);
+        expect(items[0].title).toBe('Analist Calitate');
+        expect(items[0].expirationdate).toBe('2026-11-15T23:59:59.000Z');
+      });
+
+      it('recovers the title via a fallback heading selector when .header-job h3 is gone', () => {
+        // site moved the title out of `.header-job` into a bare <h2>
+        const html = `
+          <article class="job-item">
+            <header><h2>Operator Productie</h2></header>
+            <div>Data limita pentru aplicarea la acest job este: 01.12.2026</div>
+          </article>`;
+        const items = index.parseListing(html);
+        expect(items).toHaveLength(1);
+        expect(items[0].title).toBe('Operator Productie');
+        expect(items[0].expirationdate).toBe('2026-12-01T23:59:59.000Z');
+      });
+
+      it('recovers the title via the /joburi/ permalink anchor when all headings are gone', () => {
+        const html = `
+          <article class="job-item">
+            <a href="https://www.antibiotice.ro/joburi/tehnician-mentenanta-electric/">Tehnician Mentenanta Electric</a>
+            <p>fără termen</p>
+          </article>`;
+        const items = index.parseListing(html);
+        expect(items).toHaveLength(1);
+        expect(items[0].title).toBe('Tehnician Mentenanta Electric');
+      });
+
+      it('falls back to JSON-LD JobPosting when there is no article markup at all', () => {
+        const html = `
+          <html><head>
+          <script type="application/ld+json">
+          {"@type":"JobPosting","title":"Reprezentant Medical","validThrough":"2026-10-31"}
+          </script>
+          <script type="application/ld+json">
+          {"@type":"JobPosting","title":"Product Manager Biovet"}
+          </script>
+          </head><body><div>markup the scraper doesn't know</div></body></html>`;
+        const items = index.parseListing(html);
+        expect(items.map(i => i.title).sort()).toEqual(['Product Manager Biovet', 'Reprezentant Medical']);
+        expect(items.find(i => i.title === 'Reprezentant Medical').expirationdate)
+          .toBe('2026-10-31T00:00:00.000Z');
+      });
+
+      it('falls back to regex <article> slicing when the container selectors all miss', () => {
+        // container class unknown, but the <article> tag and an <h3> survive
+        const html = `
+          <section>
+            <article data-role="posting"><h3>Servant Pompier</h3>
+              <em>termen: 20.10.2026</em></article>
+          </section>`;
+        const items = index.parseListing(html);
+        expect(items).toHaveLength(1);
+        expect(items[0].title).toBe('Servant Pompier');
+        expect(items[0].expirationdate).toBe('2026-10-20T23:59:59.000Z');
+      });
+
+      it('returns [] and does not throw when the page is unrecognisable (canary feeds off this)', () => {
+        const items = index.parseListing('<body><nav>Home</nav><footer>©</footer></body>');
+        expect(items).toEqual([]);
+      });
+    });
   });
 
   describe('transformJobsForSOLR', () => {

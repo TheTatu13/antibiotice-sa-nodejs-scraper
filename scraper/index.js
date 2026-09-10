@@ -1,10 +1,11 @@
 import fetch from "node-fetch";
 import fs from "fs";
-import * as cheerio from "cheerio";
 import { fileURLToPath } from "url";
 import { validateAndGetCompany } from "./company.js";
 import { querySOLR, upsertJobs, upsertCompany, deleteJobByUrl } from "./api.js";
 import { generateJobsMarkdown } from "./markdown-generator.js";
+import { filterValidJobs, assertScrapeYieldedJobs } from "./validate.js";
+import { locateArticles, firstMatch, regexText, textFromHtml } from "./self-healing.js";
 import companyConfig from "./config/company.js";
 import scraperConfig, { userAgent } from "./config/scraper.js";
 
@@ -77,13 +78,26 @@ function matchSitemapUrl(title, sitemapEntries) {
   return bestDist <= 2 ? best.url : null;
 }
 
-// "30.09.2026" -> "2026-09-30T23:59:59.000Z" (end of the closing day)
+// "30.09.2026" -> "2026-09-30T23:59:59.000Z" (end of the closing day).
+// Also accepts an ISO date (schema.org JobPosting `validThrough`).
 function parseDeadline(text) {
-  const m = String(text).match(/(\d{2})\.(\d{2})\.(\d{4})/);
-  if (!m) return undefined;
-  const [, dd, mm, yyyy] = m;
-  const d = new Date(Date.UTC(+yyyy, +mm - 1, +dd, 23, 59, 59));
-  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+  if (!text) return undefined;
+  const s = String(text);
+
+  const dmy = s.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+  if (dmy) {
+    const [, dd, mm, yyyy] = dmy;
+    const d = new Date(Date.UTC(+yyyy, +mm - 1, +dd, 23, 59, 59));
+    return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+  }
+
+  const iso = s.match(/\d{4}-\d{2}-\d{2}(?:[T ][\d:.]+Z?)?/);
+  if (iso) {
+    const d = new Date(iso[0]);
+    return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+  }
+
+  return undefined;
 }
 
 // ============================================================================
@@ -126,16 +140,63 @@ async function fetchListing() {
   return res.text();
 }
 
+// Strip HTML tags / collapse whitespace, cap at the job-model title limit.
+function cleanTitle(raw) {
+  const t = textFromHtml(raw);
+  if (!t) return null;
+  return t.replace(/\s+/g, " ").trim().slice(0, 200) || null;
+}
+
+/**
+ * Parse the open-positions listing into { title, expirationdate } items,
+ * self-healing through the selector cascade in scraper/config/scraper.json:
+ *
+ *   article blocks:  CSS list  ->  JSON-LD JobPosting  ->  regex <article>
+ *   title:           CSS list  ->  regex <hN>  ->  regex <a>
+ *   deadline:        CSS list  ->  date regex over the whole block text
+ */
 function parseListing(html) {
-  const $ = cheerio.load(html);
-  const { jobArticle, jobTitle, jobMeta } = scraperConfig.selectors;
+  const { jobTitle, jobMeta, jobArticle } = scraperConfig.selectors;
+  const { mode, scopes, jsonLd } = locateArticles(html, jobArticle);
   const items = [];
-  $(jobArticle).each((_, el) => {
-    const title = $(el).find(jobTitle).first().text().replace(/\s+/g, " ").trim();
-    if (!title) return;
-    const metaText = $(el).find(jobMeta).first().text();
-    items.push({ title, expirationdate: parseDeadline(metaText) });
-  });
+  const strategies = new Set();
+
+  if (mode === "jsonld") {
+    for (const posting of jsonLd) {
+      const title = cleanTitle(posting.title);
+      if (!title) continue;
+      strategies.add("jsonld");
+      items.push({ title, expirationdate: parseDeadline(posting.validThrough) });
+    }
+    console.log(`  parseListing: ${items.length} items via JSON-LD JobPosting`);
+    return items;
+  }
+
+  for (let i = 0; i < scopes.length; i++) {
+    const scope = scopes[i];
+
+    // TITLE — CSS cascade (incl. itemprop/aria hooks), then regex last resort.
+    const { value: title, strategy } = firstMatch(`title[${i}]`, [
+      { name: "css-cascade", run: () => scope.text(jobTitle).value },
+      regexText(scope.raw(), /<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/i),
+      regexText(scope.raw(), /<a\b[^>]*>([\s\S]*?)<\/a>/i)
+    ], { silent: true });
+
+    const cleaned = cleanTitle(title);
+    if (!cleaned) continue;
+    if (strategy) strategies.add(strategy);
+
+    // DEADLINE — meta selectors, then a bare date regex over the whole block.
+    const metaText = scope.text(jobMeta).value;
+    const deadline = parseDeadline(metaText) || parseDeadline(scope.fullText());
+
+    items.push({ title: cleaned, expirationdate: deadline });
+  }
+
+  console.log(
+    `  parseListing: ${items.length} items via ${mode}` +
+    (strategies.size ? ` [${[...strategies].join(", ")}]` : "")
+  );
   return items;
 }
 
@@ -385,16 +446,17 @@ async function main() {
     }
     console.log(`Jobs from ANOFM: ${anofmJobs.length}`);
 
-    const scrapedCount = rawJobs.length;
-    console.log(`Total jobs scraped (antibiotice.ro + ANOFM): ${scrapedCount}`);
+    console.log(`Total jobs scraped (antibiotice.ro + ANOFM): ${rawJobs.length}`);
 
-    if (scrapedCount === 0) {
-      // Canary: never publish an empty run — a 0-result scrape almost always
-      // means the page structure changed, not that the company has no jobs.
-      throw new Error("0 jobs scraped from all sources — aborting without writing (likely a broken selector)");
-    }
+    // Canary — abort before writing anything if every source came back empty.
+    assertScrapeYieldedJobs(rawJobs);
 
-    const jobs = rawJobs.map(job => mapToJobModel(job, cif));
+    // Drop jobs with a broken URL / empty title / bad data before publishing.
+    const { kept: validJobs } = filterValidJobs(rawJobs);
+    assertScrapeYieldedJobs(validJobs); // everything failed validation → also a canary
+
+    const scrapedCount = validJobs.length;
+    const jobs = validJobs.map(job => mapToJobModel(job, cif));
 
     const payload = {
       source: "antibiotice.ro,anofm.ro",
