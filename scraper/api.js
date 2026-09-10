@@ -27,6 +27,15 @@ import { userAgent } from "./config/scraper.js";
 const API_BASE_URL = "https://api.peviitor.ro/v1";
 const TIMEOUT = 10000;
 
+// Retry policy for transient API failures (network errors, 429, 5xx).
+// Base 2s, cap 60s, up to 5 attempts — collapsed to milliseconds under Jest so
+// the unit tests that exercise the error path stay fast.
+const IS_TEST = Boolean(process.env.JEST_WORKER_ID);
+const MAX_RETRIES = IS_TEST ? 2 : 4;
+const BASE_DELAY_MS = IS_TEST ? 2 : 2000;
+const MAX_DELAY_MS = IS_TEST ? 10 : 60000;
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+
 // ============================================================================
 // HELPERS
 // ============================================================================
@@ -36,6 +45,59 @@ const TIMEOUT = 10000;
  */
 function padCif(cif) {
   return String(cif).padStart(8, "0");
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Full-jitter exponential backoff. Honours a numeric Retry-After (seconds)
+ * when the server sent one, otherwise picks a random delay in
+ * [0, min(cap, base * 2^attempt)] so concurrent retries don't thunder.
+ */
+function backoffDelayMs(attempt, retryAfter) {
+  const secs = Number(retryAfter);
+  if (Number.isFinite(secs) && secs >= 0) {
+    return Math.min(secs * 1000, MAX_DELAY_MS);
+  }
+  const ceiling = Math.min(MAX_DELAY_MS, BASE_DELAY_MS * 2 ** attempt);
+  return Math.random() * ceiling;
+}
+
+/**
+ * fetch() with retry + backoff on transient failures. A thrown error
+ * (network/timeout) or a retryable status (429, 5xx) triggers another attempt;
+ * 4xx and success are handed back to the caller unchanged, which keeps the
+ * existing `if (!res.ok) throw` error messages intact. Each attempt gets a
+ * fresh AbortSignal timeout unless the caller supplied its own signal.
+ */
+async function fetchWithRetry(url, options = {}, label = "request") {
+  let lastErr;
+  let retryAfter = null;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delay = backoffDelayMs(attempt - 1, retryAfter);
+      console.log(`  ${label}: retry ${attempt}/${MAX_RETRIES} after ${Math.round(delay)}ms (${lastErr?.message})`);
+      await sleep(delay);
+    }
+
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT), ...options });
+
+      if (RETRYABLE_STATUS.has(res.status) && attempt < MAX_RETRIES) {
+        retryAfter = typeof res.headers?.get === "function" ? res.headers.get("retry-after") : null;
+        lastErr = new Error(`${label}: HTTP ${res.status}`);
+        continue;
+      }
+
+      return res;
+    } catch (err) {
+      retryAfter = null;
+      lastErr = err;
+    }
+  }
+
+  throw lastErr;
 }
 
 // ============================================================================
@@ -120,9 +182,9 @@ export async function upsertCompany(companyDoc) {
  */
 export async function querySOLR(cif) {
   const url = `${API_BASE_URL}/scraper/jobs/?cif=${encodeURIComponent(padCif(cif))}&rows=500`;
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     headers: { "User-Agent": userAgent }
-  });
+  }, "jobs query");
 
   if (!res.ok) {
     const text = await res.text();
@@ -208,14 +270,14 @@ export async function upsertJobs(jobs) {
     cif: padCif(job.cif)
   }));
 
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "User-Agent": userAgent
     },
     body: JSON.stringify(paddedJobs)
-  });
+  }, "jobs upload");
 
   if (!res.ok) {
     const text = await res.text();

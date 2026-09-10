@@ -64,6 +64,24 @@ describe('scraper/api.js', () => {
 
       await expect(solr.querySOLR('39176747')).rejects.toThrow('API jobs query error: 500');
     });
+
+    it('should retry a transient 503 and then succeed', async () => {
+      mockFetch
+        .mockResolvedValueOnce(makeErrorResponse(503, 'Service Unavailable'))
+        .mockResolvedValueOnce(makeJsonResponse({ total: 1, data: [{ url: 'https://test.com/1', cif: '39176747' }] }));
+
+      const result = await solr.querySOLR('39176747');
+
+      expect(result.numFound).toBe(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not retry a 4xx response', async () => {
+      mockFetch.mockResolvedValue(makeErrorResponse(404, 'Not Found'));
+
+      await expect(solr.querySOLR('39176747')).rejects.toThrow('API jobs query error: 404');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('upsertJobs', () => {
@@ -85,6 +103,15 @@ describe('scraper/api.js', () => {
       mockFetch.mockResolvedValue(makeErrorResponse(400, 'Bad Request'));
 
       await expect(solr.upsertJobs([{ url: 'https://test.com/bad' }])).rejects.toThrow('API jobs upload error: 400');
+    });
+
+    it('should retry a transient 502 and then succeed', async () => {
+      mockFetch
+        .mockResolvedValueOnce(makeErrorResponse(502, 'Bad Gateway'))
+        .mockResolvedValueOnce(makeJsonResponse({ count: 1 }));
+
+      await expect(solr.upsertJobs([{ url: 'https://test.com/job1', cif: '12345678' }])).resolves.not.toThrow();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });
 
