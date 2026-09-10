@@ -331,8 +331,11 @@ async function main() {
     console.log("=== Step 1: Get existing jobs from SOLR ===");
     const existingResult = await querySOLR(COMPANY_CIF);
     const existingCount = existingResult.numFound;
+    // Every URL under this CIF (used to classify a scraped job as new vs. update).
+    const allExistingUrls = new Set(existingResult.docs.map(d => d.url));
     // Only URLs this scraper owns — the same CIF also carries jobs published by
-    // other peviitor scrapers (inviitor.ro, aggregators). We never touch those.
+    // other peviitor scrapers (inviitor.ro, aggregators). We never touch those,
+    // and only these can be reported as "gone from the site".
     const ownExistingUrls = new Set(
       existingResult.docs.map(d => d.url).filter(isOwnJob)
     );
@@ -461,10 +464,26 @@ async function main() {
     console.log("\n=== Step 5: Summary ===");
     await sleep(2000);
     const finalResult = await querySOLR(COMPANY_CIF);
+
+    // Diff this run against what was in SOLR before it.
+    const scrapedUrls = new Set(transformedPayload.jobs.map(job => job.url));
+    const addedUrls = [...scrapedUrls].filter(url => !allExistingUrls.has(url));
+    const updatedUrls = [...scrapedUrls].filter(url => allExistingUrls.has(url));
+    const goneUrls = [...ownExistingUrls].filter(url => !scrapedUrls.has(url));
+
+    const preview = (urls, n = 10) =>
+      urls.slice(0, n).map(u => `    - ${u}`).join("\n") +
+      (urls.length > n ? `\n    … and ${urls.length - n} more` : "");
+
     console.log(`\n=== SUMMARY ===`);
-    console.log(`Jobs existing in SOLR before scrape: ${existingCount}`);
-    console.log(`Jobs scraped (antibiotice.ro + ANOFM): ${scrapedCount}`);
-    console.log(`Jobs in SOLR after scrape: ${finalResult.numFound}`);
+    console.log(`Jobs in SOLR before scrape:  ${existingCount} (${ownExistingUrls.size} ours)`);
+    console.log(`Scraped this run:             ${scrapedCount} (antibiotice.ro + ANOFM)`);
+    console.log(`  new (not in SOLR before):  ${addedUrls.length}`);
+    if (addedUrls.length) console.log(preview(addedUrls));
+    console.log(`  updated (already in SOLR): ${updatedUrls.length}`);
+    console.log(`  gone from site (ours):     ${goneUrls.length}${goneUrls.length && !scraperConfig.staleJobDeletion ? " — kept (staleJobDeletion=false)" : ""}`);
+    if (goneUrls.length) console.log(preview(goneUrls));
+    console.log(`Jobs in SOLR after scrape:    ${finalResult.numFound}`);
     console.log(`====================`);
 
     console.log("\n=== DONE ===");
