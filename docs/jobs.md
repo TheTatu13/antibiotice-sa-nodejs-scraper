@@ -7,14 +7,14 @@
 | CIF | 1973096 |
 | Brand | Antibiotice |
 | Status | activ |
-| Location | Iași |
+| Location | JUD. IAŞI, MUN. IAŞI, STR. VALEA LUPULUI, NR.1 |
 | Website | [https://www.antibiotice.ro](https://www.antibiotice.ro) |
 | Careers | [https://www.antibiotice.ro/cariere/open-position/](https://www.antibiotice.ro/cariere/open-position/) |
 | Last Scraped | 2026-09-10 |
 
 ## Current Job Listings (12)
 
-_Generated: 2026-09-10T12:36:14.757Z_
+_Generated: 2026-09-10T12:56:00.150Z_
 
 ### Manager Medical – Produse veterinare
 
