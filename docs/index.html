@@ -348,6 +348,11 @@
 // Loaded from docs/company.json (regenerated on every scrape)
 let COMPANY = "ANTIBIOTICE SA";
 let COMPANY_CIF = "1973096";
+// The peviitor API keys jobs by CIF, and the same CIF also carries jobs
+// published by other scrapers (eJobs / BestJobs imports). This page shows only
+// the jobs THIS scraper manages — the ones on the company's own careers site —
+// so the count matches antibiotice.ro exactly.
+let OWN_PREFIX = "https://www.antibiotice.ro/joburi/";
 
 // Jobs are stored with a zero-padded 8-digit CIF (Peviitor API requirement),
 // while company.json keeps the real CIF. Compare with leading zeros stripped.
@@ -360,6 +365,7 @@ async function loadCompanyConfig() {
     const cfg = await res.json();
     if (cfg.company) COMPANY = cfg.company;
     if (cfg.id) COMPANY_CIF = cfg.id;
+    if (cfg.ownJobUrlPrefix) OWN_PREFIX = cfg.ownJobUrlPrefix;
   } catch (e) {
     console.warn("company.json not available, using fallback constants");
   }
@@ -494,6 +500,8 @@ async function loadStats() {
 
       docs.forEach((job, idx) => {
         if (normalizeCif(job.cif) !== normalizeCif(COMPANY_CIF)) return;
+        // only jobs from the company's own careers site (this scraper's scope)
+        if (OWN_PREFIX && !String(job.url || "").startsWith(OWN_PREFIX)) return;
         ourCount++;
         const div = document.createElement("div");
         div.className = "job-item";

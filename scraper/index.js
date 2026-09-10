@@ -489,8 +489,15 @@ async function main() {
     fs.writeFileSync("docs/jobs.md", markdown, "utf-8");
     console.log("Saved docs/jobs.md");
 
-    fs.copyFileSync("scraper/config/company.json", "docs/company.json");
-    console.log("Copied scraper/config/company.json → docs/company.json");
+    // docs/company.json = company identity + the URL prefix the static page uses
+    // to show only jobs this scraper manages (not eJobs/BestJobs imports on the
+    // same CIF).
+    fs.writeFileSync(
+      "docs/company.json",
+      JSON.stringify({ ...companyConfig, ownJobUrlPrefix: OWN_URL_PREFIX }, null, 2),
+      "utf-8"
+    );
+    console.log("Wrote docs/company.json (+ ownJobUrlPrefix)");
 
     console.log("\n=== Step 4: Upsert jobs to SOLR ===");
     if (transformedPayload.jobs.length > 0) {
