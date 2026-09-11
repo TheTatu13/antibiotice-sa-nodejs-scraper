@@ -10,11 +10,11 @@
 | Location | JUD. IAŞI, MUN. IAŞI, STR. VALEA LUPULUI, NR.1 |
 | Website | [https://www.antibiotice.ro](https://www.antibiotice.ro) |
 | Careers | [https://www.antibiotice.ro/cariere/open-position/](https://www.antibiotice.ro/cariere/open-position/) |
-| Last Scraped | 2026-09-10 |
+| Last Scraped | 2026-09-11 |
 
-## Current Job Listings (12)
+## Current Job Listings (11)
 
-_Generated: 2026-09-10T12:56:00.150Z_
+_Generated: 2026-09-11T10:13:27.444Z_
 
 ### Manager Medical – Produse veterinare
 
@@ -68,13 +68,6 @@ _Generated: 2026-09-10T12:56:00.150Z_
 ### Operator exploatare și mentenanță
 
 - **URL:** [https://www.antibiotice.ro/joburi/operator-exploatare-si-mentenanta-2/](https://www.antibiotice.ro/joburi/operator-exploatare-si-mentenanta-2/)
-- **Work Mode:** on-site
-- **Location:** Iași
-- **Status:** scraped
-
-### Tehnician Mentenanta – Electric
-
-- **URL:** [https://www.antibiotice.ro/joburi/tehnician-mentenanta-electric/](https://www.antibiotice.ro/joburi/tehnician-mentenanta-electric/)
 - **Work Mode:** on-site
 - **Location:** Iași
 - **Status:** scraped
