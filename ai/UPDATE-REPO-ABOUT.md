@@ -8,4 +8,4 @@ Scraper automat pentru locurile de muncă ANTIBIOTICE SA (CIF: 1973096) — extr
 - peviitor-ro
 
 ## Workflow file
-`.github/workflows/job-seeker-ro-spider.yml`
+`.github/workflows/scrape.yml`

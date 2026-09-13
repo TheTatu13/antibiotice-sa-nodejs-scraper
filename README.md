@@ -1,5 +1,5 @@
-[![Oportunitati SI Cariere](https://github.com/TheTatu13/antibiotice-sa-nodejs-scraper/actions/workflows/job-seeker-ro-spider.yml/badge.svg)](https://github.com/TheTatu13/antibiotice-sa-nodejs-scraper/actions/workflows/job-seeker-ro-spider.yml)
-[![Automation Tests](https://github.com/TheTatu13/antibiotice-sa-nodejs-scraper/actions/workflows/automation-testing.yml/badge.svg)](https://github.com/TheTatu13/antibiotice-sa-nodejs-scraper/actions/workflows/automation-testing.yml)
+[![Scrape](https://github.com/TheTatu13/antibiotice-sa-nodejs-scraper/actions/workflows/scrape.yml/badge.svg)](https://github.com/TheTatu13/antibiotice-sa-nodejs-scraper/actions/workflows/scrape.yml)
+[![Tests](https://github.com/TheTatu13/antibiotice-sa-nodejs-scraper/actions/workflows/tests.yml/badge.svg)](https://github.com/TheTatu13/antibiotice-sa-nodejs-scraper/actions/workflows/tests.yml)
 [![Version](https://img.shields.io/github/package-json/v/TheTatu13/antibiotice-sa-nodejs-scraper?label=version&color=blue)](CHANGELOG.md)
 [![Test Results](https://img.shields.io/badge/test--results-HTML-9b59b6)](https://TheTatu13.github.io/antibiotice-sa-nodejs-scraper/test-results/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
