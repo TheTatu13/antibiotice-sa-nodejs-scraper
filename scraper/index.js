@@ -413,6 +413,12 @@ async function main() {
       return;
     }
 
+    // On by default in the template: upsertCompany is an idempotent PUT of
+    // ANAF-validated facts, additive not destructive. Kept true here too --
+    // the "owned by inviitor-ro-nodejs-scraper" claim below turned out to
+    // reference a scraper that doesn't exist anywhere; this repo's own
+    // scraperFile self-reference in the live company record is the real
+    // evidence of who actually maintains it.
     if (scraperConfig.manageCompany) {
       try {
         await upsertCompany({
@@ -429,7 +435,12 @@ async function main() {
         console.log(`Note: Could not upsert company: ${err.message}`);
       }
     } else {
-      console.log("manageCompany=false — leaving company core untouched (owned by inviitor-ro-nodejs-scraper)");
+      console.log(
+        "manageCompany=false — leaving company core untouched (explicitly disabled in " +
+        "config/scraper.json; only turn this off once you've *verified* another scraper " +
+        "actually manages this CIF's company record — an unverified guess here is exactly " +
+        "what left a real company entirely missing from peviitor's company core before)"
+      );
     }
 
     console.log("=== Step 3: Scrape jobs ===");
@@ -527,7 +538,11 @@ async function main() {
         console.log("\nNo stale jobs to delete");
       }
     } else {
-      console.log("\nStep 4.5 skipped — staleJobDeletion=false (coexistence with inviitor-ro-nodejs-scraper)");
+      console.log(
+        "\nStep 4.5 skipped — staleJobDeletion=false (deliberate: a partial scrape " +
+        "failure would otherwise delete real jobs it simply failed to find this run — " +
+        "use the deep-validate workflow to actually confirm and clean up dead URLs)"
+      );
     }
 
     console.log("\n=== Step 5: Summary ===");

@@ -3,7 +3,7 @@
   "requestTimeoutMs": 10000,
   "pageDelayMs": 1000,
   "staleJobDeletion": false,
-  "manageCompany": false,
+  "manageCompany": true,
   "defaultLocation": ["Iași"],
   "defaultWorkmode": "on-site",
   "ownJobUrlPrefix": "https://www.antibiotice.ro/joburi/",
