@@ -62,13 +62,13 @@ describe('index.js Component Tests', () => {
       <main>
         <article class="job-item">
           <div class="header-job"><h3>Manager Medical &#8211; Produse veterinare </h3>
-          <span class="readmorejob">Vezi detalii</span></div>
+          <a class="readmorejob" href="/joburi/manager-medical-produse-veterinare/">Vezi detalii</a></div>
           <p>Data limita pentru aplicarea la acest job este: 30.09.2026</p>
           <div class="bullets"><p>descriere</p></div>
         </article>
         <article class="job-item">
           <div class="header-job"><h3>Servant pompier </h3>
-          <span class="readmorejob">Vezi detalii</span></div>
+          <a class="readmorejob" href="/joburi/servant-pompier/">Vezi detalii</a></div>
           <p>fără termen anuntat</p>
           <div class="bullets"><p>descriere</p></div>
         </article>
@@ -85,6 +85,12 @@ describe('index.js Component Tests', () => {
       const items = index.parseListing(html);
       expect(items[0].expirationdate).toBe('2026-09-30T23:59:59.000Z');
       expect(items[1].expirationdate).toBeUndefined();
+    });
+
+    it('carries the real scraped url, not a guessed slug', () => {
+      const items = index.parseListing(html);
+      expect(items[0].url).toBe('/joburi/manager-medical-produse-veterinare/');
+      expect(items[1].url).toBe('/joburi/servant-pompier/');
     });
 
     it('returns an empty array when the selector matches nothing', () => {

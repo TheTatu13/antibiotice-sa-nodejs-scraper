@@ -5,6 +5,7 @@ import { validateAndGetCompany } from "./company.js";
 import { querySOLR, upsertJobs, upsertCompany, deleteJobByUrl } from "./api.js";
 import { generateJobsMarkdown } from "./markdown-generator.js";
 import { filterValidJobs, assertScrapeYieldedJobs } from "./validate.js";
+import { validateByContent } from "./job-validator.js";
 import { locateArticles, firstMatch, regexText, textFromHtml } from "./self-healing.js";
 import companyConfig from "./config/company.js";
 import scraperConfig, { userAgent } from "./config/scraper.js";
@@ -156,7 +157,7 @@ function cleanTitle(raw) {
  *   deadline:        CSS list  ->  date regex over the whole block text
  */
 function parseListing(html) {
-  const { jobTitle, jobMeta, jobArticle } = scraperConfig.selectors;
+  const { jobTitle, jobMeta, jobArticle, jobUrl } = scraperConfig.selectors;
   const { mode, scopes, jsonLd } = locateArticles(html, jobArticle);
   const items = [];
   const strategies = new Set();
@@ -166,7 +167,7 @@ function parseListing(html) {
       const title = cleanTitle(posting.title);
       if (!title) continue;
       strategies.add("jsonld");
-      items.push({ title, expirationdate: parseDeadline(posting.validThrough) });
+      items.push({ title, expirationdate: parseDeadline(posting.validThrough), url: posting.url || null });
     }
     console.log(`  parseListing: ${items.length} items via JSON-LD JobPosting`);
     return items;
@@ -190,7 +191,8 @@ function parseListing(html) {
     const metaText = scope.text(jobMeta).value;
     const deadline = parseDeadline(metaText) || parseDeadline(scope.fullText());
 
-    items.push({ title: cleaned, expirationdate: deadline });
+    const url = scope.href(jobUrl).value;
+    items.push({ title: cleaned, expirationdate: deadline, url });
   }
 
   console.log(
@@ -231,9 +233,14 @@ async function scrapeAntibioticeCareers() {
 
   if (listingItems.length > 0) {
     for (const item of listingItems) {
-      const url =
-        matchSitemapUrl(item.title, sitemapEntries) ||
-        `${scraperConfig.sources.jobArchive}${slugify(item.title)}/`;
+      // The real <a href> scraped from the page is ground truth -- prefer it
+      // over guessing. Sites whose permalink needs an ID the title can't
+      // reproduce silently 404 under the guess, which nothing else catches
+      // until the live validation just before upload.
+      const url = item.url
+        ? new URL(item.url, scraperConfig.sources.listing).toString()
+        : matchSitemapUrl(item.title, sitemapEntries) ||
+          `${scraperConfig.sources.jobArchive}${slugify(item.title)}/`;
       jobs.push({
         url,
         title: item.title,
@@ -381,6 +388,34 @@ function transformJobsForSOLR(payload) {
   return transformed;
 }
 
+/**
+ * Pre-upload safety net: GET-check every job URL and drop the ones that don't
+ * resolve. filterValidJobs only checks URL *shape* (a syntactically valid
+ * http(s) URL); job-validator.js can actually tell a live job from a 404, but
+ * nothing called it before an upload -- this is what let a URL-construction
+ * bug reach peviitor undetected.
+ *
+ * Uses validateByContent (GET), not validateByHead: at least one real
+ * careers site (Workday-based) answers every HEAD request with a generic 404
+ * regardless of whether the resource exists -- HEAD-only would have dropped
+ * every real job.
+ */
+async function dropDeadUrls(jobs) {
+  const alive = [];
+  for (const job of jobs) {
+    const result = await validateByContent(job.url);
+    if (result.status === "active") {
+      alive.push(job);
+    } else {
+      console.warn(`  dropped "${job.title}" (${job.url}): live URL check failed — ${result.error || `HTTP ${result.httpStatus}`}`);
+    }
+  }
+  if (alive.length < jobs.length) {
+    console.warn(`  ${jobs.length - alive.length}/${jobs.length} job(s) failed live URL validation and were dropped`);
+  }
+  return alive;
+}
+
 // ============================================================================
 // MAIN
 // ============================================================================
@@ -479,6 +514,7 @@ async function main() {
 
     console.log("Transforming jobs for SOLR...");
     const transformedPayload = transformJobsForSOLR(payload);
+    transformedPayload.jobs = await dropDeadUrls(transformedPayload.jobs);
     const validCount = transformedPayload.jobs.filter(j => j.location).length;
     console.log(`Jobs with valid Romanian locations: ${validCount}`);
 
@@ -579,7 +615,7 @@ async function main() {
   }
 }
 
-export { mapToJobModel, transformJobsForSOLR, scrapeAntibioticeCareers, fetchSitemapJobUrls, parseListing, slugify, matchSitemapUrl, parseDeadline };
+export { mapToJobModel, transformJobsForSOLR, scrapeAntibioticeCareers, fetchSitemapJobUrls, parseListing, slugify, matchSitemapUrl, parseDeadline, dropDeadUrls };
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main();
