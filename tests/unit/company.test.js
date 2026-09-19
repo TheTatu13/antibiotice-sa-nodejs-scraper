@@ -154,19 +154,45 @@ describe('company.js', () => {
       expect(typeof result.existingJobsCount).toBe('number');
     });
 
-    // Antibiotice e activă — testul inactive se rulează doar dacă firma e inactivă
-    if (ANTIBIOTICE_ANAF_RECORD.inactive) {
-      it('should return inactive status when company is inactive', async () => {
-        const inactiveRecord = { ...ANTIBIOTICE_ANAF_RECORD, inactive: true };
+    it('should return inactive status when company is inactive', async () => {
+      const inactiveRecord = { ...ANTIBIOTICE_ANAF_RECORD, inactive: true };
 
-        mockFetch
-          .mockResolvedValueOnce(anafCompanyResponse(inactiveRecord))
-          .mockResolvedValueOnce(solrResponse(0, []));
+      mockFetch
+        .mockResolvedValueOnce(anafCompanyResponse(inactiveRecord))
+        .mockResolvedValueOnce(solrResponse(0, []));
 
-        const result = await company.validateAndGetCompany();
+      const result = await company.validateAndGetCompany();
 
-        expect(result).toHaveProperty('status', 'inactive');
-      });
-    }
+      expect(result).toHaveProperty('status', 'inactive');
+    });
+
+    it('deletes jobs by CIF when an inactive company still has jobs in SOLR', async () => {
+      const inactiveRecord = { ...ANTIBIOTICE_ANAF_RECORD, inactive: true };
+
+      mockFetch
+        .mockResolvedValueOnce(anafCompanyResponse(inactiveRecord))
+        .mockResolvedValueOnce(solrResponse(3, []))
+        .mockResolvedValueOnce(peviitorResponse([]))
+        .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ count: 3 }) });
+
+      const result = await company.validateAndGetCompany();
+
+      expect(result).toHaveProperty('status', 'inactive');
+      expect(mockFetch).toHaveBeenCalledTimes(4);
+    });
+
+    it('regression: dry_run=true must never call deleteJobsByCIF, even with jobs present', async () => {
+      const inactiveRecord = { ...ANTIBIOTICE_ANAF_RECORD, inactive: true };
+
+      mockFetch
+        .mockResolvedValueOnce(anafCompanyResponse(inactiveRecord))
+        .mockResolvedValueOnce(solrResponse(3, []))
+        .mockResolvedValueOnce(peviitorResponse([]));
+
+      const result = await company.validateAndGetCompany(true);
+
+      expect(result).toHaveProperty('status', 'inactive');
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
   });
 });
