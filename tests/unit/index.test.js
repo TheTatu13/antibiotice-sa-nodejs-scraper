@@ -57,6 +57,60 @@ describe('index.js Component Tests', () => {
     });
   });
 
+  describe('matchSitemapUrlExact', () => {
+    const sitemap = [
+      { url: 'https://www.antibiotice.ro/joburi/reprezentant-medical/', slug: 'reprezentant-medical' }
+    ];
+
+    it('matches an exact slug', () => {
+      expect(index.matchSitemapUrlExact('Reprezentant Medical', sitemap))
+        .toBe('https://www.antibiotice.ro/joburi/reprezentant-medical/');
+    });
+
+    it('returns null on anything short of an exact match', () => {
+      expect(index.matchSitemapUrlExact('Reprezentant Medical si Vanzari - Veterinare', sitemap)).toBeNull();
+    });
+  });
+
+  describe('two-pass URL resolution (regression)', () => {
+    // Reproduces the real bug: a longer, unrelated title that fuzzy-matches
+    // "reprezentant-medical" (bounded-prefix tier) appears BEFORE the exact
+    // match for it in a run. A single-pass, first-come-first-served
+    // resolution let the fuzzy title steal the sitemap URL, so both jobs
+    // ended up sharing one URL and one silently overwrote the other in SOLR.
+    // This exercises the exact same two functions and claim/fallback order
+    // scrapeAntibioticeCareers uses (matchSitemapUrlExact first across every
+    // item, matchSitemapUrl as the fuzzy fallback only for the leftovers).
+    const sitemap = [
+      { url: 'https://www.antibiotice.ro/joburi/reprezentant-medical/', slug: 'reprezentant-medical' }
+    ];
+    const titles = ['Reprezentant Medical si Vanzari - Veterinare', 'Reprezentant Medical'];
+
+    function resolveTwoPass(itemTitles, entries) {
+      const resolved = {};
+      const claimed = new Set();
+      const unresolved = [];
+      itemTitles.forEach((title, i) => {
+        const exact = index.matchSitemapUrlExact(title, entries);
+        if (exact) { resolved[i] = exact; claimed.add(exact); } else { unresolved.push(i); }
+      });
+      for (const i of unresolved) {
+        const fuzzy = index.matchSitemapUrl(itemTitles[i], entries);
+        resolved[i] = fuzzy && !claimed.has(fuzzy) ? fuzzy : null;
+        if (resolved[i]) claimed.add(resolved[i]);
+      }
+      return resolved;
+    }
+
+    it('gives the exact-match job its sitemap URL even when a fuzzy match for it is resolved first', () => {
+      const resolved = resolveTwoPass(titles, sitemap);
+      // "Reprezentant Medical" (index 1) is the exact match and must win the real URL...
+      expect(resolved[1]).toBe('https://www.antibiotice.ro/joburi/reprezentant-medical/');
+      // ...so the fuzzy-only title (index 0) must NOT also get it (no shared URL).
+      expect(resolved[0]).not.toBe(resolved[1]);
+    });
+  });
+
   describe('parseListing', () => {
     const html = `
       <main>

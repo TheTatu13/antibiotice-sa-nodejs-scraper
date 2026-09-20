@@ -58,6 +58,15 @@ function levenshtein(a, b) {
 // Pick the sitemap URL whose slug best matches a listing title. The site's
 // sitemap has real-world drift (`reprezentat-` typo, `-2` disambiguation
 // suffix), so match exact → prefix → small edit distance, else return null.
+// Exact-only tier, tried first across every item in a run so a shared slug
+// always goes to its rightful exact match before any fuzzy match gets a turn
+// (see the two-pass resolution in scrapeAntibioticeCareers).
+function matchSitemapUrlExact(title, sitemapEntries) {
+  const slug = slugify(title);
+  const exact = sitemapEntries.find((e) => e.slug === slug);
+  return exact ? exact.url : null;
+}
+
 function matchSitemapUrl(title, sitemapEntries) {
   const slug = slugify(title);
   const exact = sitemapEntries.find((e) => e.slug === slug);
@@ -232,24 +241,63 @@ async function scrapeAntibioticeCareers() {
   }
 
   if (listingItems.length > 0) {
-    for (const item of listingItems) {
+    // Resolve every item's URL in two passes so an exact sitemap match always
+    // wins a shared slug over a fuzzy one, regardless of which title the
+    // listing happens to put first:
+    //   pass 1 -- the scraped <a href> (ground truth) or an EXACT sitemap slug
+    //             match; these are trustworthy, so claim their URLs immediately.
+    //   pass 2 -- only the items pass 1 couldn't resolve try the fuzzy
+    //             bounded-prefix/edit-distance fallback, and only win an
+    //             unclaimed URL.
+    // Without this ordering, a longer, unrelated title that fuzzy-matches an
+    // earlier position in sitemapEntries could claim a sitemap URL before the
+    // job that's an exact match for it even gets a turn -- two jobs sharing
+    // one URL means one silently overwrites the other in SOLR.
+    const resolved = {};
+    const claimedSitemapUrls = new Set();
+    const unresolved = [];
+    listingItems.forEach((item, i) => {
       // The real <a href> scraped from the page is ground truth -- prefer it
       // over guessing. Sites whose permalink needs an ID the title can't
       // reproduce silently 404 under the guess, which nothing else catches
       // until the live validation just before upload.
-      const url = item.url
-        ? new URL(item.url, scraperConfig.sources.listing).toString()
-        : matchSitemapUrl(item.title, sitemapEntries) ||
-          `${scraperConfig.sources.jobArchive}${slugify(item.title)}/`;
+      if (item.url) {
+        resolved[i] = new URL(item.url, scraperConfig.sources.listing).toString();
+        return;
+      }
+      const exact = matchSitemapUrlExact(item.title, sitemapEntries);
+      if (exact) {
+        resolved[i] = exact;
+        claimedSitemapUrls.add(exact);
+      } else {
+        unresolved.push(i);
+      }
+    });
+
+    for (const i of unresolved) {
+      const fuzzy = matchSitemapUrl(listingItems[i].title, sitemapEntries);
+      if (fuzzy && !claimedSitemapUrls.has(fuzzy)) {
+        resolved[i] = fuzzy;
+        claimedSitemapUrls.add(fuzzy);
+      } else {
+        // Either no fuzzy match, or it points at a sitemap URL an exact match
+        // already claimed this run -- guess instead. A wrong guess 404s and
+        // dropDeadUrls removes it: a safe failure (job missing this run)
+        // instead of an unsafe one (two jobs merged into one).
+        resolved[i] = `${scraperConfig.sources.jobArchive}${slugify(listingItems[i].title)}/`;
+      }
+    }
+
+    listingItems.forEach((item, i) => {
       jobs.push({
-        url,
+        url: resolved[i],
         title: item.title,
         location: locationFromTitle(item.title),
         workmode: scraperConfig.defaultWorkmode,
         expirationdate: item.expirationdate,
         source: "antibiotice.ro"
       });
-    }
+    });
   } else if (sitemapEntries.length > 0) {
     // Listing unreachable — fall back to sitemap-only, deriving titles from slugs.
     console.log("  Falling back to sitemap-only (titles from slugs)");
@@ -626,7 +674,7 @@ async function main(dryRun = process.argv.includes("--dry-run")) {
   }
 }
 
-export { mapToJobModel, transformJobsForSOLR, scrapeAntibioticeCareers, fetchSitemapJobUrls, parseListing, slugify, matchSitemapUrl, parseDeadline, dropDeadUrls };
+export { mapToJobModel, transformJobsForSOLR, scrapeAntibioticeCareers, fetchSitemapJobUrls, parseListing, slugify, matchSitemapUrl, matchSitemapUrlExact, parseDeadline, dropDeadUrls };
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main();
