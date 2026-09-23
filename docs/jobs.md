@@ -10,22 +10,15 @@
 | Location | JUD. IAŞI, MUN. IAŞI, STR. VALEA LUPULUI, NR.1 |
 | Website | [https://www.antibiotice.ro](https://www.antibiotice.ro) |
 | Careers | [https://www.antibiotice.ro/cariere/open-position/](https://www.antibiotice.ro/cariere/open-position/) |
-| Last Scraped | 2026-09-22 |
+| Last Scraped | 2026-09-23 |
 
-## Current Job Listings (10)
+## Current Job Listings (8)
 
-_Generated: 2026-09-22T11:14:10.401Z_
+_Generated: 2026-09-23T11:06:04.123Z_
 
 ### Manager Medical – Produse veterinare
 
 - **URL:** [https://www.antibiotice.ro/joburi/manager-medical-produse-veterinare/](https://www.antibiotice.ro/joburi/manager-medical-produse-veterinare/)
-- **Work Mode:** on-site
-- **Location:** Iași
-- **Status:** scraped
-
-### Specialist Marketing
-
-- **URL:** [https://www.antibiotice.ro/joburi/specialist-marketing/](https://www.antibiotice.ro/joburi/specialist-marketing/)
 - **Work Mode:** on-site
 - **Location:** Iași
 - **Status:** scraped
@@ -40,13 +33,6 @@ _Generated: 2026-09-22T11:14:10.401Z_
 ### Key Account Manager – Vânzări Distribuitori
 
 - **URL:** [https://www.antibiotice.ro/joburi/key-account-manager-vanzari-distribuitori/](https://www.antibiotice.ro/joburi/key-account-manager-vanzari-distribuitori/)
-- **Work Mode:** on-site
-- **Location:** Iași
-- **Status:** scraped
-
-### Manager Portofoliu
-
-- **URL:** [https://www.antibiotice.ro/joburi/manager-portofoliu/](https://www.antibiotice.ro/joburi/manager-portofoliu/)
 - **Work Mode:** on-site
 - **Location:** Iași
 - **Status:** scraped
