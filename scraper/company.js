@@ -179,17 +179,19 @@ export async function getCompanyData() {
 // ============================================================================
 
 /**
- * ``dryRun`` must reach all the way here: an ANAF-inactive company below
- * triggers ``deleteJobsByCIF`` -- a real, CIF-wide DELETE against peviitor's
- * live API that removes every job under that CIF, including ones scraped
- * by other, unrelated scrapers -- and this function used to fire it
- * unconditionally, with no way for a caller to ask for a safe, read-only
- * check.
+ * @param {boolean} dryRun - when true, skips the CIF-wide delete below for an
+ * ANAF-inactive company. This function never had a dry-run path at all before
+ * -- callers had no way to safely check a company's status without risking a
+ * real, CIF-wide DELETE against peviitor's live API (deleteJobsByCIF removes
+ * every job under that CIF, including ones scraped by other, unrelated
+ * scrapers, not just this one's).
  */
 export async function validateAndGetCompany(dryRun = false) {
   console.log("=== Step 1: Validate company via ANAF ===\n");
 
-  const { company, cif, active, anafData } = await getCompanyData();
+  const companyData = await getCompanyData();
+  let company = companyData.company;
+  const { cif, active, anafData } = companyData;
 
   console.log("\n=== Step 2: Check existing jobs in SOLR ===\n");
   const solrResult = await querySOLR(cif);
@@ -198,7 +200,13 @@ export async function validateAndGetCompany(dryRun = false) {
   console.log("\n=== Step 3: Validate via Peviitor ===\n");
   let peviitorData = null;
   try {
-    peviitorData = await getCompanyFromPeviitor(COMPANY_BRAND);
+    // Peviitor's own search is an exact, case-sensitive match against the
+    // legal name it already has stored (uppercase) -- querying with the
+    // brand (e.g. "Hochland" against a stored "HOCHLAND ...") never
+    // matches, so this silently returned no record, and every job/company
+    // write below fell back to ANAF's freshly fetched name instead of
+    // whatever peviitor already had indexed.
+    peviitorData = await getCompanyFromPeviitor(COMPANY_LEGAL_NAME.toUpperCase());
     console.log("Peviitor data fetched successfully");
   } catch (e) {
     console.log("Peviitor API error:", e.message);
@@ -206,6 +214,17 @@ export async function validateAndGetCompany(dryRun = false) {
 
   if (anafData) {
     saveCompanyData(anafData, peviitorData);
+  }
+
+  // Prefer the name peviitor already has on file for this CIF: ANAF's
+  // spelling (diacritics, spacing) can drift from what's already indexed
+  // and faceted on the site, and peviitor's company-core upsert does not
+  // reliably rewrite an existing "company" field -- so a job tagged with
+  // ANAF's fresh name can permanently mismatch the site's "Companie"
+  // filter even though free-text search still finds it. Only fall back to
+  // ANAF's name for a company peviitor has never seen before.
+  if (peviitorData?.company) {
+    company = peviitorData.company;
   }
 
   if (!active) {
