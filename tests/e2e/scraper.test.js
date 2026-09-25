@@ -3,10 +3,6 @@ import fetch from 'node-fetch';
 
 const API_BASE = 'https://api.peviitor.ro/v1';
 
-let HAS_API = false;
-
-let HAS_ANAF = false;
-
 function itIfApi(name, fn, timeout) {
   if (HAS_API) {
     return it(name, fn, timeout);
@@ -26,36 +22,39 @@ const TEST_CIF = companyConfig.id;
 const TEST_BRAND = companyConfig.brand;
 const COMPANY_NAME = companyConfig.company;
 
-beforeAll(async () => {
-  [HAS_API, HAS_ANAF] = await Promise.all([
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/scraper/jobs/?cif=${TEST_CIF}&rows=1`, {
-          signal: AbortSignal.timeout(5000)
-        });
-        return res.ok || res.status === 400;
-      } catch {
-        return false;
-      }
-    })(),
-    (async () => {
-      // demoanaf.ro's free API tier was sunset 2026-08-21 (permanent HTTP 402).
-      // anaf.js falls back to cuiscan.ro/cuifirma.ro, so probe that too.
-      try {
-        const [demoanaf, cuifirma] = await Promise.allSettled([
-          fetch('https://demoanaf.ro/api/search?q=test', { method: 'HEAD', signal: AbortSignal.timeout(8000) }),
-          fetch('https://cuifirma.ro/api/search?q=test', { signal: AbortSignal.timeout(8000) })
-        ]);
-        console.log('[DIAG] demoanaf:', demoanaf.status, demoanaf.status === 'fulfilled' ? demoanaf.value.status : demoanaf.reason?.message);
-        console.log('[DIAG] cuifirma:', cuifirma.status, cuifirma.status === 'fulfilled' ? cuifirma.value.status : cuifirma.reason?.message);
-        return (demoanaf.status === 'fulfilled' && demoanaf.value.ok) ||
-               (cuifirma.status === 'fulfilled' && cuifirma.value.ok);
-      } catch {
-        return false;
-      }
-    })()
-  ]);
-});
+// NOTE: this must resolve via top-level await, BEFORE the describe()/it()
+// calls below are registered. Jest builds its whole test tree synchronously
+// on file load, so a `beforeAll`-based check here would only ever be read
+// by itIfApi/itIfAnaf AFTER they already decided (at their default `false`)
+// whether to skip — permanently pending every gated test regardless of
+// actual availability. Top-level await runs first, so the real result is
+// what gates registration.
+const [HAS_API, HAS_ANAF] = await Promise.all([
+  (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/scraper/jobs/?cif=${TEST_CIF}&rows=1`, {
+        signal: AbortSignal.timeout(5000)
+      });
+      return res.ok || res.status === 400;
+    } catch {
+      return false;
+    }
+  })(),
+  (async () => {
+    // demoanaf.ro's free API tier was sunset 2026-08-21 (permanent HTTP 402).
+    // anaf.js falls back to cuiscan.ro/cuifirma.ro, so probe that too.
+    try {
+      const [demoanaf, cuifirma] = await Promise.allSettled([
+        fetch('https://demoanaf.ro/api/search?q=test', { method: 'HEAD', signal: AbortSignal.timeout(8000) }),
+        fetch('https://cuifirma.ro/api/search?q=test', { signal: AbortSignal.timeout(8000) })
+      ]);
+      return (demoanaf.status === 'fulfilled' && demoanaf.value.ok) ||
+             (cuifirma.status === 'fulfilled' && cuifirma.value.ok);
+    } catch {
+      return false;
+    }
+  })()
+]);
 
 describe('E2E: Full Scraping Pipeline', () => {
 
