@@ -14,7 +14,7 @@
 
 ## Current Job Listings (8)
 
-_Generated: 2026-09-25T11:29:12.711Z_
+_Generated: 2026-09-25T19:50:46.494Z_
 
 ### Manager Medical – Produse veterinare
 
