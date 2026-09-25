@@ -43,9 +43,11 @@ beforeAll(async () => {
       // anaf.js falls back to cuiscan.ro/cuifirma.ro, so probe that too.
       try {
         const [demoanaf, cuifirma] = await Promise.allSettled([
-          fetch('https://demoanaf.ro/api/search?q=test', { method: 'HEAD', signal: AbortSignal.timeout(5000) }),
-          fetch('https://cuifirma.ro/api/search?q=test', { signal: AbortSignal.timeout(5000) })
+          fetch('https://demoanaf.ro/api/search?q=test', { method: 'HEAD', signal: AbortSignal.timeout(8000) }),
+          fetch('https://cuifirma.ro/api/search?q=test', { signal: AbortSignal.timeout(8000) })
         ]);
+        console.log('[DIAG] demoanaf:', demoanaf.status, demoanaf.status === 'fulfilled' ? demoanaf.value.status : demoanaf.reason?.message);
+        console.log('[DIAG] cuifirma:', cuifirma.status, cuifirma.status === 'fulfilled' ? cuifirma.value.status : cuifirma.reason?.message);
         return (demoanaf.status === 'fulfilled' && demoanaf.value.ok) ||
                (cuifirma.status === 'fulfilled' && cuifirma.value.ok);
       } catch {
