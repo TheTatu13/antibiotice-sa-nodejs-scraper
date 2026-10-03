@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-09-07
 
 ### Added
-- Repo derivat din template-ul [epam-systems-international-srl-nodejs-scraper](https://github.com/sebiboga/epam-systems-international-srl-nodejs-scraper) pentru **ANTIBIOTICE SA** (CIF: 1973096)
+- Repo derivat din template-ul [epam-systems-international-srl-nodejs-scraper](https://github.com/peviitor-scrapers/epam-systems-international-srl-nodejs-scraper) pentru **ANTIBIOTICE SA** (CIF: 1973096)
 - Scraping HTTP + Cheerio pe site-ul oficial [antibiotice.ro/cariere](https://www.antibiotice.ro/cariere/open-position/), fără browser headless
 - Reconcilierea titlurilor din listing cu permalink-urile canonice din `joburi-sitemap.xml` (potrivire exactă → prefix → distanță de editare mică, pentru drift-ul real din sitemap)
 - `parseDeadline` — extrage `expirationdate` din textul „Data limita pentru aplicarea la acest job..."

@@ -4,7 +4,7 @@
 
 Extrage anunțurile de pe [pagina de carieră Antibiotice](https://www.antibiotice.ro/cariere/open-position/) și de pe [ANOFM](https://mediere.anofm.ro) și le publică în [peviitor.ro](https://peviitor.ro) prin API-ul Peviitor.
 
-> **🌱 Repo derivat.** Acest repo este derivat din template-ul [epam-systems-international-srl-nodejs-scraper](https://github.com/sebiboga/epam-systems-international-srl-nodejs-scraper).
+> **🌱 Repo derivat.** Acest repo este derivat din template-ul [epam-systems-international-srl-nodejs-scraper](https://github.com/peviitor-scrapers/epam-systems-international-srl-nodejs-scraper).
 
 ## Identificare
 

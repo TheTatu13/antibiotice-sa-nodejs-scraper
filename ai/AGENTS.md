@@ -4,7 +4,7 @@
 Antibiotice scraper for peviitor.ro (Node.js, ESM, Jest)
 
 ## 🌱 This Repo Is a Derived Scraper
-This repo is a scraper **derived** from the [EPAM template](https://github.com/sebiboga/epam-systems-international-srl-nodejs-scraper) for **ANTIBIOTICE SA** (CIF: 1973096).
+This repo is a scraper **derived** from the [EPAM template](https://github.com/peviitor-scrapers/epam-systems-international-srl-nodejs-scraper) for **ANTIBIOTICE SA** (CIF: 1973096).
 
 When making changes:
 - **All company-specific identity lives in `scraper/config/company.json`** (id, company, brand, URLs, API params). Read from `scraper/config/company.js` in Node code, or via `jq` in workflows. Never hardcode in source files.
@@ -65,7 +65,7 @@ When polling a workflow run with `until [ "$(gh run view ID --json status -q .st
 
 **Always specify the repo explicitly:**
 ```bash
-gh run view <RUN_ID> --repo TheTatu13/antibiotice-sa-nodejs-scraper --json status -q .status
+gh run view <RUN_ID> --repo peviitor-scrapers/antibiotice-sa-nodejs-scraper --json status -q .status
 ```
 
 Before starting any `gh run watch` or polling loop in the background, sanity-check:
@@ -113,6 +113,6 @@ npm run test:consistency   # needs GITHUB_REPOSITORY + GITHUB_TOKEN
 See [MAINTENANCE.md](MAINTENANCE.md) for the full maintenance workflow.
 
 **On every session:**
-1. Check open GitHub issues: `gh issue list --repo TheTatu13/antibiotice-sa-nodejs-scraper --state open`
+1. Check open GitHub issues: `gh issue list --repo peviitor-scrapers/antibiotice-sa-nodejs-scraper --state open`
 2. Prioritize: `critical` → `bug` → `enhancement` → `documentation`
 3. Fix all issues, commit with `#issue` reference, close the issue
